@@ -34,7 +34,7 @@ var roadRowOffset = rowTiles.firstOccurenceOf(ROAD);
 var riverRowOffset = rowTiles.firstOccurenceOf(RIVER);
 
 var numVehicles = 20;
-var numLogs = 30;
+var numLogs = 50;
 
 function vehiclePositionAlreadyTaken(row, col) {
     var x = (col * tileWidth) + (tileWidth / 2);
@@ -230,11 +230,15 @@ function setup() {
 
 function moveVehicles() {
     for (var i = 0; i < vehicles.length; i++) {
-        vehicles[i].position.x += 2;
+        if (((vehicles[i].position.y - tileHeight / 2) / tileHeight) % 2 == 0)
+            vehicles[i].position.x += 3;
+        else
+            vehicles[i].position.x += 2;
+
         if (vehicles[i].position.x > (width + tileWidth / 2)) {
             do {
                 row = Math.floor(Math.random() * numRoadRows) + roadRowOffset;
-                col = -2;
+                col = -Math.floor(Math.random() * 3) - 1;
             } while (vehiclePositionAlreadyTaken(row, col));
 
             vehicles[i].position.set((col * tileWidth) + (tileWidth / 2),
@@ -246,11 +250,15 @@ function moveVehicles() {
 
 function moveLogs() {
     for (var i = 0; i < logs.length; i++) {
-        logs[i].position.x -= 1;
-        if (logs[i].position.x > (width + tileWidth / 2)) {
+        if (((logs[i].position.y - tileHeight / 2) / tileHeight) % 2 == 0)
+            logs[i].position.x -= 1.5;
+        else
+            logs[i].position.x -= 0.5;
+
+        if (logs[i].position.x < -(tileWidth / 2)) {
             do {
                 row = Math.floor(Math.random() * numRiverRows) + riverRowOffset;
-                col = numXTiles + 1;
+                col = Math.floor(Math.random() * 3) + numXTiles;
             } while (logPositionAlreadyTaken(row, col));
 
             logs[i].position.set((col * tileWidth) + (tileWidth / 2),
