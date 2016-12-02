@@ -1,8 +1,8 @@
 var canvas, scene, camera, renderer, light, width, height, textureLoader;
 var numXTiles, numYTiles;
 
-var logs = [],
-    vehicles = [];
+var logs = [];
+var vehicles = [];
 var hero;
 
 var tileHeight = 40;
@@ -10,8 +10,9 @@ var tileWidth = 40;
 
 var groundDepth = 20;
 var groundHeight = 0;
-
 var heroHeight = 20;
+var vehicleHeight = 10;
+var logHeight = 10;
 
 const BANK = 0,
     ROAD = 1,
@@ -27,6 +28,35 @@ var rowTiles = [BANK,
 var numBankRows = rowTiles.count(BANK);
 var numRoadRows = rowTiles.count(ROAD);
 var numRiverRows = rowTiles.count(RIVER);
+
+var bankRowOffset = rowTiles.firstOccurenceOf(BANK);
+var roadRowOffset = rowTiles.firstOccurenceOf(ROAD);
+var riverRowOffset = rowTiles.firstOccurenceOf(RIVER);
+
+var numVehicles = 20;
+var numLogs = 30;
+
+function vehiclePositionAlreadyTaken(row, col) {
+    var x = (col * tileWidth) + (tileWidth / 2);
+    var y = (row * tileHeight) + (tileHeight / 2);
+
+    for (var i = 0; i < vehicles.length; i++)
+        if (vehicles[i].position.x == x && vehicles[i].position.y == y)
+            return true;
+
+    return false;
+}
+
+function logPositionAlreadyTaken(row, col) {
+    var x = (col * tileWidth) + (tileWidth / 2);
+    var y = (row * tileHeight) + (tileHeight / 2);
+
+    for (var i = 0; i < logs.length; i++)
+        if (logs[i].position.x == x && logs[i].position.y == y)
+            return true;
+
+    return false;
+}
 
 function createUnitCube(texture, color) {
     var geometry, material, texture, cube;
@@ -121,36 +151,47 @@ function createHero() {
 
 function createVehicles() {
     var texture = textureLoader.load('assets/blocks/car-top.png', function() {
-        var cube;
+        var cube, row, col;
 
-        for (var i = 0; i < 20; i++) {
-            var row = Math.floor(Math.random * 10);
-            var col = Math.floor(Math.random * numXTiles)
-            var pos = new THREE.Vector3()
+        for (var i = 0; i < numVehicles; i++) {
+            do {
+                row = Math.floor(Math.random() * numRoadRows) + roadRowOffset;
+                col = Math.floor(Math.random() * numXTiles);
+            } while (vehiclePositionAlreadyTaken(row, col));
+
             cube = createUnitCube(texture);
             cube.scale.set(tileWidth, tileHeight / 2, groundDepth);
-            cube.position.set(width / 2, (2 * tileHeight) + (tileHeight / 2), groundHeight);
+            cube.position.set((col * tileWidth) + (tileWidth / 2),
+                (row * tileHeight) + (tileHeight / 2),
+                vehicleHeight);
             scene.add(cube);
+            vehicles.push(cube);
         }
     });
 }
 
 function createLogs() {
     var texture = textureLoader.load('assets/blocks/soul_sand.png', function() {
-        var cube;
+        var cube, row, col;
 
-        cube = createUnitCube(texture);
-        cube.scale.set(tileWidth * 2, tileHeight / 2, groundDepth);
-        cube.position.set(width / 2, (6 * tileHeight) + (tileHeight / 2), groundHeight);
-        scene.add(cube);
+        for (var i = 0; i < numLogs; i++) {
+            do {
+                row = Math.floor(Math.random() * numRiverRows) + riverRowOffset;
+                col = Math.floor(Math.random() * numXTiles);
+            } while (logPositionAlreadyTaken(row, col));
+
+            cube = createUnitCube(texture);
+            cube.scale.set(tileWidth, tileHeight / 2, groundDepth);
+            cube.position.set((col * tileWidth) + (tileWidth / 2),
+                (row * tileHeight) + (tileHeight / 2),
+                vehicleHeight);
+            scene.add(cube);
+            logs.push(cube);
+        }
     });
-    texture.wrapS = THREE.RepeatWrapping;
-    texture.wrapT = THREE.RepeatWrapping;
-    texture.repeat.set(2, 1);
 }
 
 function createScene() {
-    console.log(numBankRows, numRoadRows, numRiverRows);
     createBanks();
     createRoad();
     createRiver();
@@ -187,9 +228,44 @@ function setup() {
     createScene();
 }
 
+function moveVehicles() {
+    for (var i = 0; i < vehicles.length; i++) {
+        vehicles[i].position.x += 2;
+        if (vehicles[i].position.x > (width + tileWidth / 2)) {
+            do {
+                row = Math.floor(Math.random() * numRoadRows) + roadRowOffset;
+                col = -2;
+            } while (vehiclePositionAlreadyTaken(row, col));
+
+            vehicles[i].position.set((col * tileWidth) + (tileWidth / 2),
+                (row * tileHeight) + (tileHeight / 2),
+                vehicleHeight);
+        }
+    }
+}
+
+function moveLogs() {
+    for (var i = 0; i < logs.length; i++) {
+        logs[i].position.x -= 1;
+        if (logs[i].position.x > (width + tileWidth / 2)) {
+            do {
+                row = Math.floor(Math.random() * numRiverRows) + riverRowOffset;
+                col = numXTiles + 1;
+            } while (logPositionAlreadyTaken(row, col));
+
+            logs[i].position.set((col * tileWidth) + (tileWidth / 2),
+                (row * tileHeight) + (tileHeight / 2),
+                logHeight);
+        }
+    }
+}
+
 function draw() {
     requestAnimationFrame(draw);
     renderer.render(scene, camera);
+
+    moveVehicles();
+    moveLogs();
 }
 
 function main() {
