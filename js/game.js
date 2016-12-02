@@ -1,5 +1,5 @@
-var canvas, scene, camera, renderer, light, width, height, textureLoader;
-var numXTiles, numYTiles;
+var canvas, scene, camera, renderer, light, width, height, textureLoader, requestid;
+var numXTiles, numYTiles, cooldown = 0;
 
 var logs = [];
 var vehicles = [];
@@ -56,6 +56,20 @@ function logPositionAlreadyTaken(row, col) {
             return true;
 
     return false;
+}
+
+function createCamera() {
+    camera = new THREE.OrthographicCamera(width / -2, width / 2, height / 2, height / -2, 1, 1000);
+    // camera = new THREE.PerspectiveCamera(45, width / height, 1, 1000);
+    camera.position.set(width / 2, height / 2, 610);
+    // camera.lookAt(new THREE.Vector3(width/2, (height / 2) + 50, 0));
+    scene.add(camera);
+}
+
+function createLight() {
+    light = new THREE.PointLight(0xffffff, 1, 0);
+    light.position.set(width / 2, height / 2, 1000);
+    scene.add(light);
 }
 
 function createUnitCube(texture, color) {
@@ -144,8 +158,9 @@ function createHero() {
 
         cube = createUnitCube(texture);
         cube.scale.set(tileWidth / 2, tileHeight / 2, groundDepth);
-        cube.position.set(width / 2, (0 * tileHeight) + (tileHeight / 2), groundHeight);
+        cube.position.set(width / 2, (0 * tileHeight) + (tileHeight / 2), heroHeight);
         scene.add(cube);
+        hero = cube;
     });
 }
 
@@ -192,6 +207,9 @@ function createLogs() {
 }
 
 function createScene() {
+    scene = new THREE.Scene();
+    createCamera();
+    createLight();
     createBanks();
     createRoad();
     createRiver();
@@ -211,16 +229,6 @@ function setup() {
     renderer = new THREE.WebGLRenderer();
     renderer.setSize(width, height);
     canvas.appendChild(renderer.domElement);
-
-    camera = new THREE.OrthographicCamera(width / -2, width / 2, height / 2, height / -2, 1, 1000);
-    // camera = new THREE.PerspectiveCamera(45, width / height, 1, 1000);
-    scene = new THREE.Scene();
-    scene.add(camera);
-    camera.position.set(width / 2, height / 2, 610);
-
-    light = new THREE.PointLight(0xffffff, 1, 0);
-    light.position.set(width / 2, height / 2, 1000);
-    scene.add(light);
 
     textureLoader = new THREE.TextureLoader();
     textureLoader.crossOrigin = 'anonymous';
@@ -268,12 +276,45 @@ function moveLogs() {
     }
 }
 
+function moveHero() {
+    if (Key.isDown(Key.LEFT))
+        hero.position.x -= 1;
+    if (Key.isDown(Key.RIGHT))
+        hero.position.x += 1;
+    if (Key.isDown(Key.UP))
+        hero.position.y += 1;
+    if (Key.isDown(Key.DOWN))
+        hero.position.y -= 1;
+}
+
+function clearScene() {
+    while (scene.children.length > 0)
+        scene.remove(scene.children[0]);
+    vehicles = [];
+    logs = [];
+    hero = null;
+    console.log(logs.length);
+}
+
+function reset() {
+    if (Key.isDown(Key.ESCAPE) && cooldown == 0) {
+        clearScene();
+        createScene();
+        cooldown = 100;
+    }
+    if (cooldown > 0)
+        cooldown--;
+    console.log(cooldown);
+}
+
 function draw() {
-    requestAnimationFrame(draw);
+    requestid = requestAnimationFrame(draw);
     renderer.render(scene, camera);
 
     moveVehicles();
     moveLogs();
+    moveHero();
+    reset();
 }
 
 function main() {
