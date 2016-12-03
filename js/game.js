@@ -1,5 +1,5 @@
 var canvas, scene, camera, renderer, light, width, height, textureLoader, requestid;
-var numXTiles, numYTiles, cooldown = 0;
+var numXTiles, numYTiles;
 
 var logs = [];
 var vehicles = [];
@@ -7,12 +7,22 @@ var hero;
 
 var tileHeight = 40;
 var tileWidth = 40;
+var heroHeight = 2 * tileHeight / 3;
+var heroWidth = 2 * tileWidth / 3;
+var vehicleHeight = 2 * tileHeight / 3;
+var vehicleWidth = tileWidth;
+var logHeight = 2 * tileHeight / 3;
+var logWidth = tileWidth;
 
 var groundDepth = 20;
-var groundHeight = 0;
-var heroHeight = 20;
-var vehicleHeight = 10;
-var logHeight = 10;
+var heroDepth = groundDepth;
+var vehicleDepth = groundDepth;
+var logDepth = groundDepth;
+
+var groundDepthOffset = 0;
+var heroDepthOffset = 20;
+var vehicleDepthOffset = 10;
+var logDepthOffset = 10;
 
 const BANK = 0,
     ROAD = 1,
@@ -34,7 +44,22 @@ var roadRowOffset = rowTiles.firstOccurenceOf(ROAD);
 var riverRowOffset = rowTiles.firstOccurenceOf(RIVER);
 
 var numVehicles = 20;
-var numLogs = 50;
+var numLogs = 60;
+
+var Key = {
+    A: 65,
+    W: 87,
+    D: 68,
+    S: 83,
+    SPACE: 32,
+    LEFT: 37,
+    UP: 38,
+    RIGHT: 39,
+    DOWN: 40,
+    ESCAPE: 27,
+
+    pressed: false
+}
 
 function vehiclePositionAlreadyTaken(row, col) {
     var x = (col * tileWidth) + (tileWidth / 2);
@@ -105,7 +130,7 @@ function createBanks() {
                 continue;
             cube = createUnitCube(texture);
             cube.scale.set(width, tileHeight, groundDepth);
-            cube.position.set(width / 2, (i * tileHeight) + (tileHeight / 2), groundHeight);
+            cube.position.set(width / 2, (i * tileHeight) + (tileHeight / 2), groundDepthOffset);
             scene.add(cube);
         }
     });
@@ -124,7 +149,7 @@ function createRoad() {
                 continue;
             cube = createUnitCube(texture);
             cube.scale.set(width, tileHeight, groundDepth);
-            cube.position.set(width / 2, (i * tileHeight) + (tileHeight / 2), groundHeight);
+            cube.position.set(width / 2, (i * tileHeight) + (tileHeight / 2), groundDepthOffset);
             scene.add(cube);
         }
     });
@@ -143,7 +168,7 @@ function createRiver() {
                 continue;
             cube = createUnitCube(texture);
             cube.scale.set(width, tileHeight, groundDepth);
-            cube.position.set(width / 2, (i * tileHeight) + (tileHeight / 2), groundHeight);
+            cube.position.set(width / 2, (i * tileHeight) + (tileHeight / 2), groundDepthOffset);
             scene.add(cube);
         }
     });
@@ -157,8 +182,8 @@ function createHero() {
         var cube;
 
         cube = createUnitCube(texture);
-        cube.scale.set(tileWidth / 2, tileHeight / 2, groundDepth);
-        cube.position.set(width / 2, (0 * tileHeight) + (tileHeight / 2), heroHeight);
+        cube.scale.set(heroWidth, heroHeight, heroDepth);
+        cube.position.set(width / 2, (0 * tileHeight) + (tileHeight / 2), heroDepthOffset);
         scene.add(cube);
         hero = cube;
     });
@@ -175,10 +200,10 @@ function createVehicles() {
             } while (vehiclePositionAlreadyTaken(row, col));
 
             cube = createUnitCube(texture);
-            cube.scale.set(tileWidth, tileHeight / 2, groundDepth);
+            cube.scale.set(vehicleWidth, vehicleHeight, vehicleDepth);
             cube.position.set((col * tileWidth) + (tileWidth / 2),
                 (row * tileHeight) + (tileHeight / 2),
-                vehicleHeight);
+                vehicleDepthOffset);
             scene.add(cube);
             vehicles.push(cube);
         }
@@ -196,10 +221,10 @@ function createLogs() {
             } while (logPositionAlreadyTaken(row, col));
 
             cube = createUnitCube(texture);
-            cube.scale.set(tileWidth, tileHeight / 2, groundDepth);
+            cube.scale.set(logWidth, logHeight, logDepth);
             cube.position.set((col * tileWidth) + (tileWidth / 2),
                 (row * tileHeight) + (tileHeight / 2),
-                vehicleHeight);
+                vehicleDepthOffset);
             scene.add(cube);
             logs.push(cube);
         }
@@ -234,14 +259,19 @@ function setup() {
     textureLoader.crossOrigin = 'anonymous';
 
     createScene();
+
+    document.onkeydown = moveHero;
+    document.onkeyup = flagReset;
 }
 
 function moveVehicles() {
     for (var i = 0; i < vehicles.length; i++) {
-        if (((vehicles[i].position.y - tileHeight / 2) / tileHeight) % 2 == 0)
+        if (((vehicles[i].position.y - tileHeight / 2) / tileHeight) % 3 == 0)
             vehicles[i].position.x += 3;
-        else
+        else if (((vehicles[i].position.y - tileHeight / 2) / tileHeight) % 3 == 1)
             vehicles[i].position.x += 2;
+        else
+            vehicles[i].position.x += 1.5;
 
         if (vehicles[i].position.x > (width + tileWidth / 2)) {
             do {
@@ -251,17 +281,19 @@ function moveVehicles() {
 
             vehicles[i].position.set((col * tileWidth) + (tileWidth / 2),
                 (row * tileHeight) + (tileHeight / 2),
-                vehicleHeight);
+                vehicleDepthOffset);
         }
     }
 }
 
 function moveLogs() {
     for (var i = 0; i < logs.length; i++) {
-        if (((logs[i].position.y - tileHeight / 2) / tileHeight) % 2 == 0)
+        if (((logs[i].position.y - tileHeight / 2) / tileHeight) % 3 == 0)
+            logs[i].position.x -= 2;
+        else if (((logs[i].position.y - tileHeight / 2) / tileHeight) % 3 == 1)
             logs[i].position.x -= 1.5;
         else
-            logs[i].position.x -= 0.5;
+            logs[i].position.x -= 1;
 
         if (logs[i].position.x < -(tileWidth / 2)) {
             do {
@@ -271,20 +303,43 @@ function moveLogs() {
 
             logs[i].position.set((col * tileWidth) + (tileWidth / 2),
                 (row * tileHeight) + (tileHeight / 2),
-                logHeight);
+                logDepthOffset);
         }
     }
 }
 
-function moveHero() {
-    if (Key.isDown(Key.LEFT))
-        hero.position.x -= 1;
-    if (Key.isDown(Key.RIGHT))
-        hero.position.x += 1;
-    if (Key.isDown(Key.UP))
-        hero.position.y += 1;
-    if (Key.isDown(Key.DOWN))
-        hero.position.y -= 1;
+function moveHero(event) {
+    var key = event.keyCode;
+
+    if (Key.pressed)
+        return;
+
+    Key.pressed = true;
+
+    if (key == Key.LEFT)
+        hero.position.x -= tileWidth;
+    if (key == Key.RIGHT)
+        hero.position.x += tileWidth;
+    if (key == Key.UP)
+        hero.position.y += tileHeight;
+    if (key == Key.DOWN)
+        hero.position.y -= tileHeight;
+
+    if (hero.position.x < tileWidth / 2)
+        hero.position.x = tileWidth / 2;
+    else if (hero.position.x > width - (tileWidth / 2))
+        hero.position.x = width - (tileWidth / 2);
+    if (hero.position.y < tileHeight / 2)
+        hero.position.y = tileHeight / 2;
+    else if (hero.position.y > height - (tileHeight / 2))
+        hero.position.y = height - (tileHeight / 2);
+
+    if (key == Key.ESCAPE)
+        reset();
+}
+
+function flagReset(event) {
+    Key.pressed = false;
 }
 
 function clearScene() {
@@ -293,18 +348,11 @@ function clearScene() {
     vehicles = [];
     logs = [];
     hero = null;
-    console.log(logs.length);
 }
 
 function reset() {
-    if (Key.isDown(Key.ESCAPE) && cooldown == 0) {
-        clearScene();
-        createScene();
-        cooldown = 100;
-    }
-    if (cooldown > 0)
-        cooldown--;
-    console.log(cooldown);
+    clearScene();
+    createScene();
 }
 
 function draw() {
@@ -313,8 +361,8 @@ function draw() {
 
     moveVehicles();
     moveLogs();
-    moveHero();
-    reset();
+    // moveHero();
+    // reset();
 }
 
 function main() {
