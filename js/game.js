@@ -1,4 +1,4 @@
-var Screen = {
+var Game = {
     canvas: document.getElementById("renderCanvas"),
     renderer: new THREE.WebGLRenderer(),
     scene: null,
@@ -14,7 +14,10 @@ var Screen = {
     numXTiles: null,
     numYTiles: null,
 
-    text: document.getElementById("text")
+    text: document.getElementById("text"),
+    
+    initialHeroHealth: 3,
+    initialHeroPosition: null
 }
 
 var Tile = {
@@ -32,8 +35,9 @@ var Hero = {
     depth: Tile.depth,
     depthOffset: 20,
 
-    health: 3,
-    alive: true
+    health: Game.initialHeroHealth,
+    alive: true,
+    won: false
 }
 
 var Log = {
@@ -45,7 +49,7 @@ var Log = {
     depthOffset: 10,
 
     spawnOffset: 3,
-    speed: [1.6, 1.2, 0.8],
+    speed: [2, 1.5, 1],
 
     count: 30
 }
@@ -139,18 +143,18 @@ function logPositionAlreadyTaken(row, col) {
 }
 
 function createCamera() {
-    Screen.camera = new THREE.OrthographicCamera(Screen.width / -2, Screen.width / 2, Screen.height / 2, Screen.height /
+    Game.camera = new THREE.OrthographicCamera(Game.width / -2, Game.width / 2, Game.height / 2, Game.height /
         -2, 1, 1000);
-    // Screen.camera = new THREE.PerspectiveCamera(45, Screen.width / Screen.height, 1, 1000);
-    Screen.camera.position.set(Screen.width / 2, Screen.height / 2, 610);
-    // Screen.camera.lookAt(new THREE.Vector3(Screen.width/2, (Screen.height / 2) + 50, 0));
-    Screen.scene.add(Screen.camera);
+    // Game.camera = new THREE.PerspectiveCamera(45, Game.width / Game.height, 1, 1000);
+    Game.camera.position.set(Game.width / 2, Game.height / 2, 610);
+    // Game.camera.lookAt(new THREE.Vector3(Game.width/2, (Game.height / 2) + 50, 0));
+    Game.scene.add(Game.camera);
 }
 
 function createLight() {
-    Screen.light = new THREE.PointLight(0xffffff, 1, 0);
-    Screen.light.position.set(Screen.width / 2, Screen.height / 2, 1000);
-    Screen.scene.add(Screen.light);
+    Game.light = new THREE.PointLight(0xffffff, 1, 0);
+    Game.light.position.set(Game.width / 2, Game.height / 2, 1000);
+    Game.scene.add(Game.light);
 }
 
 function createUnitCube(texture, color) {
@@ -178,81 +182,81 @@ function createUnitCube(texture, color) {
 
 function createBanks() {
     var color = 0x25df59;
-    var texture = Screen.textureLoader.load('assets/blocks/sand.png', function() {
+    var texture = Game.textureLoader.load('assets/blocks/sand.png', function() {
         var cube;
 
         for (var i = 0; i < rowTiles.length; i++) {
             if (rowTiles[i] != BANK)
                 continue;
             cube = createUnitCube(texture);
-            cube.scale.set(Screen.width, Tile.height, Tile.depth);
-            cube.position.set(Screen.width / 2, (i * Tile.height) + (Tile.height / 2), Tile.depthOffset);
-            Screen.scene.add(cube);
+            cube.scale.set(Game.width, Tile.height, Tile.depth);
+            cube.position.set(Game.width / 2, (i * Tile.height) + (Tile.height / 2), Tile.depthOffset);
+            Game.scene.add(cube);
         }
     });
     texture.wrapS = THREE.RepeatWrapping;
     texture.wrapT = THREE.RepeatWrapping;
-    texture.repeat.set(Screen.numXTiles, 1);
+    texture.repeat.set(Game.numXTiles, 1);
 }
 
 function createRoad() {
     var color = 0x25df59;
-    var texture = Screen.textureLoader.load('assets/blocks/stone_slab_side.png', function() {
+    var texture = Game.textureLoader.load('assets/blocks/stone_slab_side.png', function() {
         var cube;
 
         for (var i = 0; i < rowTiles.length; i++) {
             if (rowTiles[i] != ROAD)
                 continue;
             cube = createUnitCube(texture);
-            cube.scale.set(Screen.width, Tile.height, Tile.depth);
-            cube.position.set(Screen.width / 2, (i * Tile.height) + (Tile.height / 2), Tile.depthOffset);
-            Screen.scene.add(cube);
+            cube.scale.set(Game.width, Tile.height, Tile.depth);
+            cube.position.set(Game.width / 2, (i * Tile.height) + (Tile.height / 2), Tile.depthOffset);
+            Game.scene.add(cube);
         }
     });
     texture.wrapS = THREE.RepeatWrapping;
     texture.wrapT = THREE.RepeatWrapping;
-    texture.repeat.set(Screen.numXTiles, 1);
+    texture.repeat.set(Game.numXTiles, 1);
 }
 
 function createRiver() {
     var color = 0x25df59;
-    var texture = Screen.textureLoader.load('assets/blocks/wool_colored_light_blue.png', function() {
+    var texture = Game.textureLoader.load('assets/blocks/wool_colored_light_blue.png', function() {
         var cube;
 
         for (var i = 0; i < rowTiles.length; i++) {
             if (rowTiles[i] != RIVER)
                 continue;
             cube = createUnitCube(texture);
-            cube.scale.set(Screen.width, Tile.height, Tile.depth);
-            cube.position.set(Screen.width / 2, (i * Tile.height) + (Tile.height / 2), Tile.depthOffset);
-            Screen.scene.add(cube);
+            cube.scale.set(Game.width, Tile.height, Tile.depth);
+            cube.position.set(Game.width / 2, (i * Tile.height) + (Tile.height / 2), Tile.depthOffset);
+            Game.scene.add(cube);
         }
     });
     texture.wrapS = THREE.RepeatWrapping;
     texture.wrapT = THREE.RepeatWrapping;
-    texture.repeat.set(Screen.numXTiles, 1);
+    texture.repeat.set(Game.numXTiles, 1);
 }
 
 function createHero() {
-    var texture = Screen.textureLoader.load('assets/blocks/daylight_detector_top.png', function() {
+    var texture = Game.textureLoader.load('assets/blocks/daylight_detector_top.png', function() {
         var cube;
 
         cube = createUnitCube(texture);
         cube.scale.set(Hero.width, Hero.height, Hero.depth);
-        cube.position.set(((Screen.numXTiles / 2) * Tile.width) + Tile.width / 2, Tile.height / 2, Hero.depthOffset);
-        Screen.scene.add(cube);
+        cube.position.set(Game.initialHeroPosition.x, Game.initialHeroPosition.y, Game.initialHeroPosition.z);
+        Game.scene.add(cube);
         Hero.object = cube;
     });
 }
 
 function createVehicles() {
-    var texture = Screen.textureLoader.load('assets/blocks/car-top.png', function() {
+    var texture = Game.textureLoader.load('assets/blocks/car-top.png', function() {
         var cube, row, col;
 
         for (var i = 0; i < Vehicle.count; i++) {
             do {
                 row = Math.floor(Math.random() * Road.numRows) + Road.rowOffset;
-                col = Math.floor(Math.random() * Screen.numXTiles);
+                col = Math.floor(Math.random() * Game.numXTiles);
             } while (vehiclePositionAlreadyTaken(row, col));
 
             cube = createUnitCube(texture);
@@ -260,7 +264,7 @@ function createVehicles() {
             cube.position.set((col * Tile.width) + (Tile.width / 2),
                 (row * Tile.height) + (Tile.height / 2),
                 Vehicle.depthOffset);
-            Screen.scene.add(cube);
+            Game.scene.add(cube);
             Vehicle.objects.push(cube);
         }
     });
@@ -270,13 +274,13 @@ function createVehicles() {
 }
 
 function createLogs() {
-    var texture = Screen.textureLoader.load('assets/blocks/soul_sand.png', function() {
+    var texture = Game.textureLoader.load('assets/blocks/soul_sand.png', function() {
         var cube, row, col;
 
         for (var i = 0; i < Log.count; i++) {
             do {
                 row = Math.floor(Math.random() * River.numRows) + River.rowOffset;
-                col = Math.floor(Math.random() * Screen.numXTiles);
+                col = Math.floor(Math.random() * Game.numXTiles);
             } while (logPositionAlreadyTaken(row, col));
 
             cube = createUnitCube(texture);
@@ -284,7 +288,7 @@ function createLogs() {
             cube.position.set((col * Tile.width) + (Tile.width / 2),
                 (row * Tile.height) + (Tile.height / 2),
                 Vehicle.depthOffset);
-            Screen.scene.add(cube);
+            Game.scene.add(cube);
             Log.objects.push(cube);
         }
     });
@@ -294,7 +298,7 @@ function createLogs() {
 }
 
 function createScene() {
-    Screen.scene = new THREE.Scene();
+    Game.scene = new THREE.Scene();
     createCamera();
     createLight();
     createBanks();
@@ -306,18 +310,19 @@ function createScene() {
 }
 
 function setup() {
-    Screen.numXTiles = Screen.width / Tile.width;
-    Screen.numYTiles = Screen.height / Tile.height;
+    Game.numXTiles = Game.width / Tile.width;
+    Game.numYTiles = Game.height / Tile.height;
 
-    Screen.renderer.setSize(Screen.width, Screen.height);
-    Screen.canvas.appendChild(Screen.renderer.domElement);
+    Game.renderer.setSize(Game.width, Game.height);
+    Game.canvas.appendChild(Game.renderer.domElement);
 
-    Screen.textureLoader.crossOrigin = 'anonymous';
+    Game.textureLoader.crossOrigin = 'anonymous';
 
+    Game.initialHeroPosition = new THREE.Vector3(((Game.numXTiles / 2) * Tile.width) + Tile.width / 2, Tile.height / 2, Hero.depthOffset);
     createScene();
 
-    document.onkeydown = moveHero;
-    document.onkeyup = flagReset;
+    document.onkeydown = handleKeyDown;
+    document.onkeyup = handleKeyUp;
 }
 
 function moveVehicles() {
@@ -329,7 +334,7 @@ function moveVehicles() {
         else
             Vehicle.objects[i].position.x += Vehicle.speed[2];
 
-        if (Vehicle.objects[i].position.x > (Screen.width + Tile.width / 2)) {
+        if (Vehicle.objects[i].position.x > (Game.width + Tile.width / 2)) {
             do {
                 row = Math.floor(Math.random() * Road.numRows) + Road.rowOffset;
                 col = -Math.floor(Math.random() * Vehicle.spawnOffset) - 1;
@@ -354,7 +359,7 @@ function moveLogs() {
         if (Log.objects[i].position.x < -(Tile.width / 2)) {
             do {
                 row = Math.floor(Math.random() * River.numRows) + River.rowOffset;
-                col = Math.floor(Math.random() * Log.spawnOffset) + Screen.numXTiles;
+                col = Math.floor(Math.random() * Log.spawnOffset) + Game.numXTiles;
             } while (logPositionAlreadyTaken(row, col));
 
             Log.objects[i].position.set((col * Tile.width) + (Tile.width / 2),
@@ -364,13 +369,66 @@ function moveLogs() {
     }
 }
 
-function moveHero(event) {
+function moveHero() {
+    var i, x, y, row, col;
+
+    if (Hero.object == null)
+        return;
+
+    x = Hero.object.position.x;
+    y = Hero.object.position.y;
+    row = Math.floor(y / Tile.height);
+    col = Math.floor(x / Tile.width);
+
+    if (rowTiles[row] != RIVER)
+        return;
+
+    for (i = 0; i < Log.objects.length; i++) {
+        objX = Log.objects[i].position.x;
+        objY = Log.objects[i].position.y;
+        xDiff = Log.width / 2 + Hero.width / 2;
+        yDiff = Log.height / 2 + Hero.height / 2
+        if ((objX < (x + xDiff) && objX > (x - xDiff)) &&
+            (objY < (y + yDiff) && objY > (y - yDiff))) {
+            if (((objY - Tile.height / 2) / Tile.height) % 3 == 0)
+                Hero.object.position.x -= Log.speed[0];
+            else if (((objY - Tile.height / 2) / Tile.height) % 3 == 1)
+                Hero.object.position.x -= Log.speed[1];
+            else
+                Hero.object.position.x -= Log.speed[2];
+            ensureHeroInGame();
+            return;
+        }
+    }
+}
+
+function ensureHeroInGame() {
+    if (Hero.object == null)
+        return;
+
+    if (Hero.object.position.x < Tile.width / 2)
+        Hero.object.position.x = Tile.width / 2;
+    else if (Hero.object.position.x > Game.width - (Tile.width / 2))
+        Hero.object.position.x = Game.width - (Tile.width / 2);
+    if (Hero.object.position.y < Tile.height / 2)
+        Hero.object.position.y = Tile.height / 2;
+    else if (Hero.object.position.y > Game.height - (Tile.height / 2))
+        Hero.object.position.y = Game.height - (Tile.height / 2);
+}
+
+function handleKeyDown(event) {
     var key = event.keyCode;
 
     if (Key.pressed)
         return;
 
     Key.pressed = true;
+
+    if (key == Key.ESCAPE)
+        reset();
+
+    if (!Hero.alive || Hero.won)
+        return;
 
     if (key == Key.LEFT)
         Hero.object.position.x -= Tile.width;
@@ -381,26 +439,16 @@ function moveHero(event) {
     if (key == Key.DOWN)
         Hero.object.position.y -= Tile.height;
 
-    if (Hero.object.position.x < Tile.width / 2)
-        Hero.object.position.x = Tile.width / 2;
-    else if (Hero.object.position.x > Screen.width - (Tile.width / 2))
-        Hero.object.position.x = Screen.width - (Tile.width / 2);
-    if (Hero.object.position.y < Tile.height / 2)
-        Hero.object.position.y = Tile.height / 2;
-    else if (Hero.object.position.y > Screen.height - (Tile.height / 2))
-        Hero.object.position.y = Screen.height - (Tile.height / 2);
-
-    if (key == Key.ESCAPE)
-        reset();
+    ensureHeroInGame();
 }
 
-function flagReset(event) {
+function handleKeyUp(event) {
     Key.pressed = false;
 }
 
 function clearScene() {
-    while (Screen.scene.children.length > 0)
-        Screen.scene.remove(Screen.scene.children[0]);
+    while (Game.scene.children.length > 0)
+        Game.scene.remove(Game.scene.children[0]);
     Vehicle.objects = [];
     Log.objects = [];
     Hero.object = null;
@@ -409,6 +457,10 @@ function clearScene() {
 function reset() {
     clearScene();
     createScene();
+
+    Hero.alive = true;
+    Hero.won = false;
+    Hero.health = Game.initialHeroHealth;
 }
 
 function checkCollision() {
@@ -454,21 +506,51 @@ function checkCollision() {
 
 function handleCollision() {
     var collided = checkCollision();
-    if (collided)
-    // Screen.text.innerHTML = "Dead";
-        cancelAnimationFrame(Screen.animationRequest);
+    if (collided) {
+        Hero.health--;
+        if (Hero.health == 0) {
+            Hero.alive = false;
+            Game.text.innerHTML = "You died! Press escape to restart.";
+        } else {
+            Game.text.innerHTML = "You have " + Hero.health + " lives.";
+            Hero.object.position.x = Game.initialHeroPosition.x;
+            Hero.object.position.y = Game.initialHeroPosition.y;
+            Hero.object.position.z = Game.initialHeroPosition.z;
+        }
+    }
+}
+
+function checkGameEnd() {
+    var i, x, y, row, col;
+
+    if (Hero.object == null)
+        return false;
+
+    x = Hero.object.position.x;
+    y = Hero.object.position.y;
+    row = Math.floor(y / Tile.height);
+    col = Math.floor(x / Tile.width);
+
+    if (row == rowTiles.length - 1) {
+        Hero.won = true;
+        Game.text.innerHTML = "You won! Press escape to restart.";
+    }
 }
 
 function draw() {
-    Screen.animationRequest = requestAnimationFrame(draw);
-    Screen.renderer.render(Screen.scene, Screen.camera);
+    Game.animationRequest = requestAnimationFrame(draw);
+    Game.renderer.render(Game.scene, Game.camera);
+
+    if (!Hero.alive || Hero.won)
+        return;
 
     moveVehicles();
     moveLogs();
-    // moveHero();
+    moveHero();
     // reset();
 
     handleCollision();
+    checkGameEnd();
 }
 
 function main() {
