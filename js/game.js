@@ -1,7 +1,9 @@
 var Screen = {
-    canvas: null,
-    renderer: null,
+    canvas: document.getElementById("renderCanvas"),
+    renderer: new THREE.WebGLRenderer(),
     scene: null,
+    animationRequest: null,
+    textureLoader: new THREE.TextureLoader(),
 
     camera: null,
     light: null,
@@ -10,7 +12,9 @@ var Screen = {
     height: 480,
 
     numXTiles: null,
-    numYTiles: null
+    numYTiles: null,
+
+    text: document.getElementById("text")
 }
 
 var Tile = {
@@ -26,7 +30,10 @@ var Hero = {
     height: 2 * Tile.height / 3,
     width: 2 * Tile.width / 3,
     depth: Tile.depth,
-    depthOffset: 20
+    depthOffset: 20,
+
+    health: 3,
+    alive: true
 }
 
 var Log = {
@@ -132,7 +139,8 @@ function logPositionAlreadyTaken(row, col) {
 }
 
 function createCamera() {
-    Screen.camera = new THREE.OrthographicCamera(Screen.width / -2, Screen.width / 2, Screen.height / 2, Screen.height / -2, 1, 1000);
+    Screen.camera = new THREE.OrthographicCamera(Screen.width / -2, Screen.width / 2, Screen.height / 2, Screen.height /
+        -2, 1, 1000);
     // Screen.camera = new THREE.PerspectiveCamera(45, Screen.width / Screen.height, 1, 1000);
     Screen.camera.position.set(Screen.width / 2, Screen.height / 2, 610);
     // Screen.camera.lookAt(new THREE.Vector3(Screen.width/2, (Screen.height / 2) + 50, 0));
@@ -301,12 +309,9 @@ function setup() {
     Screen.numXTiles = Screen.width / Tile.width;
     Screen.numYTiles = Screen.height / Tile.height;
 
-    Screen.canvas = document.getElementById("renderCanvas");
-    Screen.renderer = new THREE.WebGLRenderer();
     Screen.renderer.setSize(Screen.width, Screen.height);
     Screen.canvas.appendChild(Screen.renderer.domElement);
 
-    Screen.textureLoader = new THREE.TextureLoader();
     Screen.textureLoader.crossOrigin = 'anonymous';
 
     createScene();
@@ -406,8 +411,56 @@ function reset() {
     createScene();
 }
 
+function checkCollision() {
+    var i, x, y, row, col;
+
+    if (Hero.object == null)
+        return false;
+
+    x = Hero.object.position.x;
+    y = Hero.object.position.y;
+    row = Math.floor(y / Tile.height);
+    col = Math.floor(x / Tile.width);
+
+    if (rowTiles[row] == BANK)
+        return false;
+
+    if (rowTiles[row] == ROAD) {
+        for (i = 0; i < Vehicle.objects.length; i++) {
+            objX = Vehicle.objects[i].position.x;
+            objY = Vehicle.objects[i].position.y;
+            xDiff = Vehicle.width / 2 + Hero.width / 2;
+            yDiff = Vehicle.height / 2 + Hero.height / 2
+            if ((objX < (x + xDiff) && objX > (x - xDiff)) &&
+                (objY < (y + yDiff) && objY > (y - yDiff)))
+                return true;
+        }
+        return false;
+    } else if (rowTiles[row] == RIVER) {
+        for (i = 0; i < Log.objects.length; i++) {
+            objX = Log.objects[i].position.x;
+            objY = Log.objects[i].position.y;
+            xDiff = Log.width / 2 + Hero.width / 2;
+            yDiff = Log.height / 2 + Hero.height / 2
+            if ((objX < (x + xDiff) && objX > (x - xDiff)) &&
+                (objY < (y + yDiff) && objY > (y - yDiff)))
+                return false;
+        }
+        return true;
+    }
+
+    return false;
+}
+
+function handleCollision() {
+    var collided = checkCollision();
+    if (collided)
+    // Screen.text.innerHTML = "Dead";
+        cancelAnimationFrame(Screen.animationRequest);
+}
+
 function draw() {
-    requestAnimationFrame(draw);
+    Screen.animationRequest = requestAnimationFrame(draw);
     Screen.renderer.render(Screen.scene, Screen.camera);
 
     moveVehicles();
@@ -415,7 +468,7 @@ function draw() {
     // moveHero();
     // reset();
 
-    // checkCollision();
+    handleCollision();
 }
 
 function main() {
