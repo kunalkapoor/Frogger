@@ -1,28 +1,61 @@
-var canvas, scene, camera, renderer, light, width, height, textureLoader, requestid;
-var numXTiles, numYTiles;
+var Screen = {
+    canvas: null,
+    renderer: null,
+    scene: null,
 
-var logs = [];
-var vehicles = [];
-var hero;
+    camera: null,
+    light: null,
 
-var tileHeight = 40;
-var tileWidth = 40;
-var heroHeight = 2 * tileHeight / 3;
-var heroWidth = 2 * tileWidth / 3;
-var vehicleHeight = 2 * tileHeight / 3;
-var vehicleWidth = tileWidth;
-var logHeight = 2 * tileHeight / 3;
-var logWidth = tileWidth;
+    width: 800,
+    height: 480,
 
-var groundDepth = 20;
-var heroDepth = groundDepth;
-var vehicleDepth = groundDepth;
-var logDepth = groundDepth;
+    numXTiles: null,
+    numYTiles: null
+}
 
-var groundDepthOffset = 0;
-var heroDepthOffset = 20;
-var vehicleDepthOffset = 10;
-var logDepthOffset = 10;
+var Tile = {
+    height: 40,
+    width: 40,
+    depth: 20,
+    depthOffset: 0
+}
+
+var Hero = {
+    object: null,
+
+    height: 2 * Tile.height / 3,
+    width: 2 * Tile.width / 3,
+    depth: Tile.depth,
+    depthOffset: 20
+}
+
+var Log = {
+    objects: [],
+
+    height: 2 * Tile.height / 3,
+    width: Tile.width * 2,
+    depth: Tile.depth,
+    depthOffset: 10,
+
+    spawnOffset: 3,
+    speed: [1.6, 1.2, 0.8],
+
+    count: 30
+}
+
+var Vehicle = {
+    objects: [],
+
+    height: 2 * Tile.height / 3,
+    width: Tile.width,
+    depth: Tile.depth,
+    depthOffset: 10,
+
+    spawnOffset: 3,
+    speed: [3, 2.5, 2],
+
+    count: 20
+}
 
 const BANK = 0,
     ROAD = 1,
@@ -35,16 +68,20 @@ var rowTiles = [BANK,
     BANK
 ];
 
-var numBankRows = rowTiles.count(BANK);
-var numRoadRows = rowTiles.count(ROAD);
-var numRiverRows = rowTiles.count(RIVER);
+var Bank = {
+    numRows: rowTiles.count(BANK),
+    rowOffset: rowTiles.firstOccurenceOf(BANK)
+}
 
-var bankRowOffset = rowTiles.firstOccurenceOf(BANK);
-var roadRowOffset = rowTiles.firstOccurenceOf(ROAD);
-var riverRowOffset = rowTiles.firstOccurenceOf(RIVER);
+var Road = {
+    numRows: rowTiles.count(ROAD),
+    rowOffset: rowTiles.firstOccurenceOf(ROAD)
+}
 
-var numVehicles = 20;
-var numLogs = 60;
+var River = {
+    numRows: rowTiles.count(RIVER),
+    rowOffset: rowTiles.firstOccurenceOf(RIVER)
+}
 
 var Key = {
     A: 65,
@@ -62,39 +99,50 @@ var Key = {
 }
 
 function vehiclePositionAlreadyTaken(row, col) {
-    var x = (col * tileWidth) + (tileWidth / 2);
-    var y = (row * tileHeight) + (tileHeight / 2);
-
-    for (var i = 0; i < vehicles.length; i++)
-        if (vehicles[i].position.x == x && vehicles[i].position.y == y)
+    var x, y, objX, objY;
+    for (var i = 0; i < Vehicle.objects.length; i++) {
+        x = (col * Tile.width) + (Tile.width / 2);
+        y = (row * Tile.height) + (Tile.height / 2);
+        objX = Vehicle.objects[i].position.x;
+        objY = Vehicle.objects[i].position.y;
+        // if ((objX < (x + Vehicle.width) && objX > (x - Vehicle.width)) &&
+        //     (objY < (y + Vehicle.height) && objY > (y - Vehicle.height)))
+        //     return true;
+        if (objX == x && objY == y)
             return true;
-
+    }
     return false;
 }
 
 function logPositionAlreadyTaken(row, col) {
-    var x = (col * tileWidth) + (tileWidth / 2);
-    var y = (row * tileHeight) + (tileHeight / 2);
-
-    for (var i = 0; i < logs.length; i++)
-        if (logs[i].position.x == x && logs[i].position.y == y)
+    var x, y, objX, objY;
+    for (var i = 0; i < Log.objects.length; i++) {
+        x = (col * Tile.width) + (Tile.width / 2);
+        y = (row * Tile.height) + (Tile.height / 2);
+        objX = Log.objects[i].position.x;
+        objY = Log.objects[i].position.y;
+        // if ((objX < (x + Log.width) && objX > (x - Log.width)) &&
+        //     (objY < (y + Log.height) && objY > (y - Log.height)))
+        //     return true;
+        if (objX == x && objY == y)
             return true;
+    }
 
     return false;
 }
 
 function createCamera() {
-    camera = new THREE.OrthographicCamera(width / -2, width / 2, height / 2, height / -2, 1, 1000);
-    // camera = new THREE.PerspectiveCamera(45, width / height, 1, 1000);
-    camera.position.set(width / 2, height / 2, 610);
-    // camera.lookAt(new THREE.Vector3(width/2, (height / 2) + 50, 0));
-    scene.add(camera);
+    Screen.camera = new THREE.OrthographicCamera(Screen.width / -2, Screen.width / 2, Screen.height / 2, Screen.height / -2, 1, 1000);
+    // Screen.camera = new THREE.PerspectiveCamera(45, Screen.width / Screen.height, 1, 1000);
+    Screen.camera.position.set(Screen.width / 2, Screen.height / 2, 610);
+    // Screen.camera.lookAt(new THREE.Vector3(Screen.width/2, (Screen.height / 2) + 50, 0));
+    Screen.scene.add(Screen.camera);
 }
 
 function createLight() {
-    light = new THREE.PointLight(0xffffff, 1, 0);
-    light.position.set(width / 2, height / 2, 1000);
-    scene.add(light);
+    Screen.light = new THREE.PointLight(0xffffff, 1, 0);
+    Screen.light.position.set(Screen.width / 2, Screen.height / 2, 1000);
+    Screen.scene.add(Screen.light);
 }
 
 function createUnitCube(texture, color) {
@@ -122,117 +170,123 @@ function createUnitCube(texture, color) {
 
 function createBanks() {
     var color = 0x25df59;
-    var texture = textureLoader.load('assets/blocks/sand.png', function() {
+    var texture = Screen.textureLoader.load('assets/blocks/sand.png', function() {
         var cube;
 
         for (var i = 0; i < rowTiles.length; i++) {
             if (rowTiles[i] != BANK)
                 continue;
             cube = createUnitCube(texture);
-            cube.scale.set(width, tileHeight, groundDepth);
-            cube.position.set(width / 2, (i * tileHeight) + (tileHeight / 2), groundDepthOffset);
-            scene.add(cube);
+            cube.scale.set(Screen.width, Tile.height, Tile.depth);
+            cube.position.set(Screen.width / 2, (i * Tile.height) + (Tile.height / 2), Tile.depthOffset);
+            Screen.scene.add(cube);
         }
     });
     texture.wrapS = THREE.RepeatWrapping;
     texture.wrapT = THREE.RepeatWrapping;
-    texture.repeat.set(numXTiles, 1);
+    texture.repeat.set(Screen.numXTiles, 1);
 }
 
 function createRoad() {
     var color = 0x25df59;
-    var texture = textureLoader.load('assets/blocks/stone_slab_side.png', function() {
+    var texture = Screen.textureLoader.load('assets/blocks/stone_slab_side.png', function() {
         var cube;
 
         for (var i = 0; i < rowTiles.length; i++) {
             if (rowTiles[i] != ROAD)
                 continue;
             cube = createUnitCube(texture);
-            cube.scale.set(width, tileHeight, groundDepth);
-            cube.position.set(width / 2, (i * tileHeight) + (tileHeight / 2), groundDepthOffset);
-            scene.add(cube);
+            cube.scale.set(Screen.width, Tile.height, Tile.depth);
+            cube.position.set(Screen.width / 2, (i * Tile.height) + (Tile.height / 2), Tile.depthOffset);
+            Screen.scene.add(cube);
         }
     });
     texture.wrapS = THREE.RepeatWrapping;
     texture.wrapT = THREE.RepeatWrapping;
-    texture.repeat.set(numXTiles, 1);
+    texture.repeat.set(Screen.numXTiles, 1);
 }
 
 function createRiver() {
     var color = 0x25df59;
-    var texture = textureLoader.load('assets/blocks/wool_colored_light_blue.png', function() {
+    var texture = Screen.textureLoader.load('assets/blocks/wool_colored_light_blue.png', function() {
         var cube;
 
         for (var i = 0; i < rowTiles.length; i++) {
             if (rowTiles[i] != RIVER)
                 continue;
             cube = createUnitCube(texture);
-            cube.scale.set(width, tileHeight, groundDepth);
-            cube.position.set(width / 2, (i * tileHeight) + (tileHeight / 2), groundDepthOffset);
-            scene.add(cube);
+            cube.scale.set(Screen.width, Tile.height, Tile.depth);
+            cube.position.set(Screen.width / 2, (i * Tile.height) + (Tile.height / 2), Tile.depthOffset);
+            Screen.scene.add(cube);
         }
     });
     texture.wrapS = THREE.RepeatWrapping;
     texture.wrapT = THREE.RepeatWrapping;
-    texture.repeat.set(numXTiles, 1);
+    texture.repeat.set(Screen.numXTiles, 1);
 }
 
 function createHero() {
-    var texture = textureLoader.load('assets/blocks/daylight_detector_top.png', function() {
+    var texture = Screen.textureLoader.load('assets/blocks/daylight_detector_top.png', function() {
         var cube;
 
         cube = createUnitCube(texture);
-        cube.scale.set(heroWidth, heroHeight, heroDepth);
-        cube.position.set(width / 2, (0 * tileHeight) + (tileHeight / 2), heroDepthOffset);
-        scene.add(cube);
-        hero = cube;
+        cube.scale.set(Hero.width, Hero.height, Hero.depth);
+        cube.position.set(((Screen.numXTiles / 2) * Tile.width) + Tile.width / 2, Tile.height / 2, Hero.depthOffset);
+        Screen.scene.add(cube);
+        Hero.object = cube;
     });
 }
 
 function createVehicles() {
-    var texture = textureLoader.load('assets/blocks/car-top.png', function() {
+    var texture = Screen.textureLoader.load('assets/blocks/car-top.png', function() {
         var cube, row, col;
 
-        for (var i = 0; i < numVehicles; i++) {
+        for (var i = 0; i < Vehicle.count; i++) {
             do {
-                row = Math.floor(Math.random() * numRoadRows) + roadRowOffset;
-                col = Math.floor(Math.random() * numXTiles);
+                row = Math.floor(Math.random() * Road.numRows) + Road.rowOffset;
+                col = Math.floor(Math.random() * Screen.numXTiles);
             } while (vehiclePositionAlreadyTaken(row, col));
 
             cube = createUnitCube(texture);
-            cube.scale.set(vehicleWidth, vehicleHeight, vehicleDepth);
-            cube.position.set((col * tileWidth) + (tileWidth / 2),
-                (row * tileHeight) + (tileHeight / 2),
-                vehicleDepthOffset);
-            scene.add(cube);
-            vehicles.push(cube);
+            cube.scale.set(Vehicle.width, Vehicle.height, Vehicle.depth);
+            cube.position.set((col * Tile.width) + (Tile.width / 2),
+                (row * Tile.height) + (Tile.height / 2),
+                Vehicle.depthOffset);
+            Screen.scene.add(cube);
+            Vehicle.objects.push(cube);
         }
     });
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(Vehicle.width / Tile.width, 1);
 }
 
 function createLogs() {
-    var texture = textureLoader.load('assets/blocks/soul_sand.png', function() {
+    var texture = Screen.textureLoader.load('assets/blocks/soul_sand.png', function() {
         var cube, row, col;
 
-        for (var i = 0; i < numLogs; i++) {
+        for (var i = 0; i < Log.count; i++) {
             do {
-                row = Math.floor(Math.random() * numRiverRows) + riverRowOffset;
-                col = Math.floor(Math.random() * numXTiles);
+                row = Math.floor(Math.random() * River.numRows) + River.rowOffset;
+                col = Math.floor(Math.random() * Screen.numXTiles);
             } while (logPositionAlreadyTaken(row, col));
 
             cube = createUnitCube(texture);
-            cube.scale.set(logWidth, logHeight, logDepth);
-            cube.position.set((col * tileWidth) + (tileWidth / 2),
-                (row * tileHeight) + (tileHeight / 2),
-                vehicleDepthOffset);
-            scene.add(cube);
-            logs.push(cube);
+            cube.scale.set(Log.width, Log.height, Log.depth);
+            cube.position.set((col * Tile.width) + (Tile.width / 2),
+                (row * Tile.height) + (Tile.height / 2),
+                Vehicle.depthOffset);
+            Screen.scene.add(cube);
+            Log.objects.push(cube);
         }
     });
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(Log.width / Tile.width, 1);
 }
 
 function createScene() {
-    scene = new THREE.Scene();
+    Screen.scene = new THREE.Scene();
     createCamera();
     createLight();
     createBanks();
@@ -244,19 +298,16 @@ function createScene() {
 }
 
 function setup() {
-    width = 800;
-    height = 480;
+    Screen.numXTiles = Screen.width / Tile.width;
+    Screen.numYTiles = Screen.height / Tile.height;
 
-    numXTiles = width / tileWidth;
-    numYTiles = height / tileHeight;
+    Screen.canvas = document.getElementById("renderCanvas");
+    Screen.renderer = new THREE.WebGLRenderer();
+    Screen.renderer.setSize(Screen.width, Screen.height);
+    Screen.canvas.appendChild(Screen.renderer.domElement);
 
-    canvas = document.getElementById("renderCanvas");
-    renderer = new THREE.WebGLRenderer();
-    renderer.setSize(width, height);
-    canvas.appendChild(renderer.domElement);
-
-    textureLoader = new THREE.TextureLoader();
-    textureLoader.crossOrigin = 'anonymous';
+    Screen.textureLoader = new THREE.TextureLoader();
+    Screen.textureLoader.crossOrigin = 'anonymous';
 
     createScene();
 
@@ -265,45 +316,45 @@ function setup() {
 }
 
 function moveVehicles() {
-    for (var i = 0; i < vehicles.length; i++) {
-        if (((vehicles[i].position.y - tileHeight / 2) / tileHeight) % 3 == 0)
-            vehicles[i].position.x += 3;
-        else if (((vehicles[i].position.y - tileHeight / 2) / tileHeight) % 3 == 1)
-            vehicles[i].position.x += 2;
+    for (var i = 0; i < Vehicle.objects.length; i++) {
+        if (((Vehicle.objects[i].position.y - Tile.height / 2) / Tile.height) % 3 == 0)
+            Vehicle.objects[i].position.x += Vehicle.speed[0];
+        else if (((Vehicle.objects[i].position.y - Tile.height / 2) / Tile.height) % 3 == 1)
+            Vehicle.objects[i].position.x += Vehicle.speed[1];
         else
-            vehicles[i].position.x += 1.5;
+            Vehicle.objects[i].position.x += Vehicle.speed[2];
 
-        if (vehicles[i].position.x > (width + tileWidth / 2)) {
+        if (Vehicle.objects[i].position.x > (Screen.width + Tile.width / 2)) {
             do {
-                row = Math.floor(Math.random() * numRoadRows) + roadRowOffset;
-                col = -Math.floor(Math.random() * 3) - 1;
+                row = Math.floor(Math.random() * Road.numRows) + Road.rowOffset;
+                col = -Math.floor(Math.random() * Vehicle.spawnOffset) - 1;
             } while (vehiclePositionAlreadyTaken(row, col));
 
-            vehicles[i].position.set((col * tileWidth) + (tileWidth / 2),
-                (row * tileHeight) + (tileHeight / 2),
-                vehicleDepthOffset);
+            Vehicle.objects[i].position.set((col * Tile.width) + (Tile.width / 2),
+                (row * Tile.height) + (Tile.height / 2),
+                Vehicle.depthOffset);
         }
     }
 }
 
 function moveLogs() {
-    for (var i = 0; i < logs.length; i++) {
-        if (((logs[i].position.y - tileHeight / 2) / tileHeight) % 3 == 0)
-            logs[i].position.x -= 2;
-        else if (((logs[i].position.y - tileHeight / 2) / tileHeight) % 3 == 1)
-            logs[i].position.x -= 1.5;
+    for (var i = 0; i < Log.objects.length; i++) {
+        if (((Log.objects[i].position.y - Tile.height / 2) / Tile.height) % 3 == 0)
+            Log.objects[i].position.x -= Log.speed[0];
+        else if (((Log.objects[i].position.y - Tile.height / 2) / Tile.height) % 3 == 1)
+            Log.objects[i].position.x -= Log.speed[1];
         else
-            logs[i].position.x -= 1;
+            Log.objects[i].position.x -= Log.speed[2];
 
-        if (logs[i].position.x < -(tileWidth / 2)) {
+        if (Log.objects[i].position.x < -(Tile.width / 2)) {
             do {
-                row = Math.floor(Math.random() * numRiverRows) + riverRowOffset;
-                col = Math.floor(Math.random() * 3) + numXTiles;
+                row = Math.floor(Math.random() * River.numRows) + River.rowOffset;
+                col = Math.floor(Math.random() * Log.spawnOffset) + Screen.numXTiles;
             } while (logPositionAlreadyTaken(row, col));
 
-            logs[i].position.set((col * tileWidth) + (tileWidth / 2),
-                (row * tileHeight) + (tileHeight / 2),
-                logDepthOffset);
+            Log.objects[i].position.set((col * Tile.width) + (Tile.width / 2),
+                (row * Tile.height) + (Tile.height / 2),
+                Log.depthOffset);
         }
     }
 }
@@ -317,22 +368,22 @@ function moveHero(event) {
     Key.pressed = true;
 
     if (key == Key.LEFT)
-        hero.position.x -= tileWidth;
+        Hero.object.position.x -= Tile.width;
     if (key == Key.RIGHT)
-        hero.position.x += tileWidth;
+        Hero.object.position.x += Tile.width;
     if (key == Key.UP)
-        hero.position.y += tileHeight;
+        Hero.object.position.y += Tile.height;
     if (key == Key.DOWN)
-        hero.position.y -= tileHeight;
+        Hero.object.position.y -= Tile.height;
 
-    if (hero.position.x < tileWidth / 2)
-        hero.position.x = tileWidth / 2;
-    else if (hero.position.x > width - (tileWidth / 2))
-        hero.position.x = width - (tileWidth / 2);
-    if (hero.position.y < tileHeight / 2)
-        hero.position.y = tileHeight / 2;
-    else if (hero.position.y > height - (tileHeight / 2))
-        hero.position.y = height - (tileHeight / 2);
+    if (Hero.object.position.x < Tile.width / 2)
+        Hero.object.position.x = Tile.width / 2;
+    else if (Hero.object.position.x > Screen.width - (Tile.width / 2))
+        Hero.object.position.x = Screen.width - (Tile.width / 2);
+    if (Hero.object.position.y < Tile.height / 2)
+        Hero.object.position.y = Tile.height / 2;
+    else if (Hero.object.position.y > Screen.height - (Tile.height / 2))
+        Hero.object.position.y = Screen.height - (Tile.height / 2);
 
     if (key == Key.ESCAPE)
         reset();
@@ -343,11 +394,11 @@ function flagReset(event) {
 }
 
 function clearScene() {
-    while (scene.children.length > 0)
-        scene.remove(scene.children[0]);
-    vehicles = [];
-    logs = [];
-    hero = null;
+    while (Screen.scene.children.length > 0)
+        Screen.scene.remove(Screen.scene.children[0]);
+    Vehicle.objects = [];
+    Log.objects = [];
+    Hero.object = null;
 }
 
 function reset() {
@@ -356,13 +407,15 @@ function reset() {
 }
 
 function draw() {
-    requestid = requestAnimationFrame(draw);
-    renderer.render(scene, camera);
+    requestAnimationFrame(draw);
+    Screen.renderer.render(Screen.scene, Screen.camera);
 
     moveVehicles();
     moveLogs();
     // moveHero();
     // reset();
+
+    // checkCollision();
 }
 
 function main() {
