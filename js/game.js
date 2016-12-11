@@ -1,102 +1,3 @@
-var Game = {
-    canvas: document.getElementById("renderCanvas"),
-    renderer: new THREE.WebGLRenderer(),
-    scene: null,
-    animationRequest: null,
-    textureLoader: new THREE.TextureLoader(),
-
-    currentCameraOrtho: true,
-    perspectiveCamera: null,
-    orthographicCamera: null,
-    ambientLight: null,
-    light: null,
-
-    width: 800,
-    height: 480,
-
-    numXTiles: null,
-    numYTiles: null,
-
-    text: document.getElementById("text"),
-
-    initialHeroHealth: 3,
-    initialHeroPosition: null
-}
-
-var Tile = {
-    height: 40,
-    width: 40,
-    depth: 20,
-    depthOffset: 0
-}
-
-var Hero = {
-    object: null,
-
-    height: 2 * Tile.height / 3,
-    width: 2 * Tile.width / 3,
-    depth: Tile.depth,
-    depthOffset: 20,
-
-    health: Game.initialHeroHealth,
-    alive: true,
-    won: false
-}
-
-var Log = {
-    objects: [],
-
-    height: 2 * Tile.height / 3,
-    width: Tile.width * 2,
-    depth: Tile.depth,
-    depthOffset: 10,
-
-    spawnOffset: 3,
-    speed: [2.5, 2, 1.5],
-
-    count: 20
-}
-
-var Vehicle = {
-    objects: [],
-
-    height: 2 * Tile.height / 3,
-    width: Tile.width,
-    depth: Tile.depth,
-    depthOffset: 10,
-
-    spawnOffset: 3,
-    speed: [3, 2.5, 2],
-
-    count: 25
-}
-
-const BANK = 0,
-    ROAD = 1,
-    RIVER = 2;
-
-var rowTiles = [BANK,
-    ROAD, ROAD, ROAD, ROAD,
-    BANK,
-    RIVER, RIVER, RIVER, RIVER, RIVER,
-    BANK
-];
-
-var Bank = {
-    numRows: rowTiles.count(BANK),
-    rowOffset: rowTiles.firstOccurenceOf(BANK)
-}
-
-var Road = {
-    numRows: rowTiles.count(ROAD),
-    rowOffset: rowTiles.firstOccurenceOf(ROAD)
-}
-
-var River = {
-    numRows: rowTiles.count(RIVER),
-    rowOffset: rowTiles.firstOccurenceOf(RIVER)
-}
-
 var Key = {
     A: 65,
     B: 66,
@@ -133,6 +34,111 @@ var Key = {
     ESCAPE: 27,
 
     pressed: false
+}
+
+var Game = {
+    canvas: document.getElementById("renderCanvas"),
+    renderer: new THREE.WebGLRenderer(),
+    scene: null,
+    animationRequest: null,
+    textureLoader: new THREE.TextureLoader(),
+    colladaLoader: new THREE.ColladaLoader(),
+    clock: new THREE.Clock(),
+
+    currentCameraOrtho: true,
+    perspectiveCamera: null,
+    orthographicCamera: null,
+    ambientLight: null,
+    light: null,
+
+    width: 800,
+    height: 480,
+
+    numXTiles: null,
+    numYTiles: null,
+
+    text: document.getElementById("text"),
+
+    initialHeroHealth: 3,
+    initialHeroPosition: null
+}
+
+var Tile = {
+    height: 40,
+    width: 40,
+    depth: 20,
+    depthOffset: 0
+}
+
+var Hero = {
+    object: null,
+    model: null,
+    facing: Key.UP,
+
+    height: 2 * Tile.height / 3,
+    width: 2 * Tile.width / 3,
+    depth: Tile.depth,
+    depthOffset: 20,
+
+    health: Game.initialHeroHealth,
+    alive: true,
+    won: false
+}
+
+var Log = {
+    objects: [],
+    model: null,
+
+    height: 2 * Tile.height / 3,
+    width: Tile.width * 2,
+    depth: Tile.depth,
+    depthOffset: 10,
+
+    spawnOffset: 3,
+    speed: [2.5, 2, 1.5],
+
+    count: 20
+}
+
+var Vehicle = {
+    objects: [],
+    model: null,
+
+    height: 2 * Tile.height / 3,
+    width: Tile.width,
+    depth: Tile.depth,
+    depthOffset: 10,
+
+    spawnOffset: 3,
+    speed: [3, 2.5, 2],
+
+    count: 25
+}
+
+const BANK = 0,
+    ROAD = 1,
+    RIVER = 2;
+
+var rowTiles = [BANK,
+    ROAD, ROAD, ROAD, ROAD,
+    BANK,
+    RIVER, RIVER, RIVER, RIVER, RIVER,
+    BANK
+];
+
+var Bank = {
+    numRows: rowTiles.count(BANK),
+    rowOffset: rowTiles.firstOccurenceOf(BANK)
+}
+
+var Road = {
+    numRows: rowTiles.count(ROAD),
+    rowOffset: rowTiles.firstOccurenceOf(ROAD)
+}
+
+var River = {
+    numRows: rowTiles.count(RIVER),
+    rowOffset: rowTiles.firstOccurenceOf(RIVER)
 }
 
 function vehiclePositionAlreadyTaken(row, col) {
@@ -186,7 +192,7 @@ function createCamera() {
 }
 
 function createLight() {
-    Game.ambientLight = new THREE.AmbientLight(0x101010);
+    Game.ambientLight = new THREE.AmbientLight(0xaaaaaa);
     Game.scene.add(Game.ambientLight);
 
     Game.light = new THREE.PointLight(0xffffff, 1, 0);
@@ -200,7 +206,9 @@ function createUnitCube(texture, color) {
     geometry = new THREE.BoxGeometry(1, 1, 1);
     if (texture)
         material = new THREE.MeshBasicMaterial({
-            map: texture
+            map: texture,
+            transparent: true,
+            opacity: 0.99
         });
     else
         material = new THREE.MeshPhongMaterial({
@@ -274,15 +282,24 @@ function createRiver() {
 }
 
 function createHero() {
-    var texture = Game.textureLoader.load('assets/blocks/daylight_detector_top.png', function() {
-        var cube;
+    // var texture = Game.textureLoader.load('assets/blocks/daylight_detector_top.png', function() {
+    //     var cube;
 
-        cube = createUnitCube(texture);
-        cube.scale.set(Hero.width, Hero.height, Hero.depth);
-        cube.position.set(Game.initialHeroPosition.x, Game.initialHeroPosition.y, Game.initialHeroPosition.z);
-        Game.scene.add(cube);
-        Hero.object = cube;
-    });
+    //     cube = createUnitCube(texture);
+    //     cube.scale.set(Hero.width, Hero.height, Hero.depth);
+    //     cube.position.set(Game.initialHeroPosition.x, Game.initialHeroPosition.y, Game.initialHeroPosition.z);
+    //     Game.scene.add(cube);
+    //     Hero.object = cube;
+    // });
+    // Hero.object = Hero.model;
+    Hero.object.scale.set(2, 2, 2);
+    Hero.object.position.set(Game.width / 2, Game.height / 2, 100);
+
+    Hero.object.rotateY(calculateHeroRotation(Key.UP));
+    Hero.object.updateMatrix();
+    Hero.facing = Key.UP;
+
+    Game.scene.add(Hero.object);
 }
 
 function createVehicles() {
@@ -360,6 +377,50 @@ function setup() {
 
     document.onkeydown = handleKeyDown;
     document.onkeyup = handleKeyUp;
+}
+
+function calculateHeroRotation(targetDirection) {
+    var currentDirection = Hero.facing;
+
+    if (currentDirection == targetDirection)
+        return 0;
+
+    switch (targetDirection) {
+        case Key.UP:
+            if (currentDirection == Key.DOWN)
+                return Math.PI;
+            if (currentDirection == Key.LEFT)
+                return -Math.PI / 2;
+            if (currentDirection == Key.RIGHT)
+                return Math.PI / 2;
+            break;
+        case Key.DOWN:
+            if (currentDirection == Key.UP)
+                return Math.PI;
+            if (currentDirection == Key.RIGHT)
+                return -Math.PI / 2;
+            if (currentDirection == Key.LEFT)
+                return Math.PI / 2;
+            break;
+        case Key.LEFT:
+            if (currentDirection == Key.RIGHT)
+                return Math.PI;
+            if (currentDirection == Key.DOWN)
+                return -Math.PI / 2;
+            if (currentDirection == Key.UP)
+                return Math.PI / 2;
+            break;
+        case Key.RIGHT:
+            if (currentDirection == Key.LEFT)
+                return Math.PI;
+            if (currentDirection == Key.UP)
+                return -Math.PI / 2;
+            if (currentDirection == Key.DOWN)
+                return Math.PI / 2;
+            break;
+    }
+
+    return 0;
 }
 
 function moveVehicles() {
@@ -507,14 +568,30 @@ function handleKeyDown(event) {
     if (!Hero.alive || Hero.won)
         return;
 
-    if (key == Key.LEFT)
+    if (key == Key.LEFT) {
         Hero.object.position.x -= Tile.width;
-    if (key == Key.RIGHT)
+        Hero.object.rotateY(calculateHeroRotation(Key.LEFT));
+        Hero.object.updateMatrix();
+        Hero.facing = key;
+    }
+    else if (key == Key.RIGHT) {
         Hero.object.position.x += Tile.width;
-    if (key == Key.UP)
+        Hero.object.rotateY(calculateHeroRotation(Key.RIGHT));
+        Hero.object.updateMatrix();
+        Hero.facing = key;
+    }
+    else if (key == Key.UP) {
         Hero.object.position.y += Tile.height;
-    if (key == Key.DOWN)
+        Hero.object.rotateY(calculateHeroRotation(Key.UP));
+        Hero.object.updateMatrix();
+        Hero.facing = key;
+    }
+    else if (key == Key.DOWN) {
         Hero.object.position.y -= Tile.height;
+        Hero.object.rotateY(calculateHeroRotation(Key.DOWN));
+        Hero.object.updateMatrix();
+        Hero.facing = key;
+    }
 
     ensureHeroInGame();
 }
@@ -528,7 +605,7 @@ function clearScene() {
         Game.scene.remove(Game.scene.children[0]);
     Vehicle.objects = [];
     Log.objects = [];
-    Hero.object = null;
+    // Hero.object = null;
 }
 
 function reset() {
@@ -618,6 +695,7 @@ function checkGameEnd() {
 function draw() {
     Game.animationRequest = requestAnimationFrame(draw);
 
+    THREE.AnimationHandler.update(Game.clock.getDelta());
     if (Game.currentCameraOrtho)
         Game.renderer.render(Game.scene, Game.orthographicCamera);
     else {
@@ -640,8 +718,40 @@ function draw() {
 }
 
 function main() {
-    setup();
-    draw();
+    // Game.colladaLoader.options.convertUpAxis = true;
+    // Game.colladaLoader.load('js/three.js-master/examples/models/collada/monster/monster.dae', function(collada) {
+    //     Hero.model = collada.scene;
+
+    //     Hero.model.traverse(function(child) {
+    //         if (child instanceof THREE.SkinnedMesh) {
+    //             var animation = new THREE.Animation(child, child.geometry.animation);
+    //             animation.play();
+    //         }
+    //     });
+
+    //     Hero.model.scale.set(0.05, 0.05, 0.05);
+    //     Hero.model.position.x = Game.width / 2;
+    //     Hero.model.position.y = Game.height / 2;
+    //     Hero.model.position.z = 100;
+    //     Hero.model.rotateX(Math.PI / 2);
+    //     Hero.model.rotateY(Math.PI / 2);
+    //     Hero.model.updateMatrix();
+    //     Hero.object = Hero.model;
+
+    //     setup();
+    //     draw();
+    // });
+    var loader = new THREE.JSONLoader().load('assets/frog1.js', function(geometry, materials) {
+        var material = new THREE.MultiMaterial(materials);
+        var mesh = new THREE.Mesh(geometry, material);
+        Hero.model = mesh;
+        Hero.object = mesh;
+        Hero.object.rotateX(Math.PI / 2);
+        Hero.object.updateMatrix();
+
+        setup();
+        draw();
+    });
 }
 
 main();
