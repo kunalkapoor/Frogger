@@ -5,7 +5,10 @@ var Game = {
     animationRequest: null,
     textureLoader: new THREE.TextureLoader(),
 
-    camera: null,
+    currentCameraOrtho: true,
+    perspectiveCamera: null,
+    orthographicCamera: null,
+    ambientLight: null,
     light: null,
 
     width: 800,
@@ -15,7 +18,7 @@ var Game = {
     numYTiles: null,
 
     text: document.getElementById("text"),
-    
+
     initialHeroHealth: 3,
     initialHeroPosition: null
 }
@@ -49,9 +52,9 @@ var Log = {
     depthOffset: 10,
 
     spawnOffset: 3,
-    speed: [2, 1.5, 1],
+    speed: [2.5, 2, 1.5],
 
-    count: 30
+    count: 20
 }
 
 var Vehicle = {
@@ -65,7 +68,7 @@ var Vehicle = {
     spawnOffset: 3,
     speed: [3, 2.5, 2],
 
-    count: 20
+    count: 25
 }
 
 const BANK = 0,
@@ -96,9 +99,32 @@ var River = {
 
 var Key = {
     A: 65,
-    W: 87,
+    B: 66,
+    C: 67,
     D: 68,
+    E: 69,
+    F: 70,
+    G: 71,
+    H: 72,
+    I: 73,
+    J: 74,
+    K: 75,
+    L: 76,
+    M: 77,
+    N: 78,
+    O: 79,
+    P: 80,
+    Q: 81,
+    R: 82,
     S: 83,
+    T: 84,
+    U: 85,
+    V: 86,
+    W: 87,
+    X: 88,
+    Y: 89,
+    Z: 90,
+
     SPACE: 32,
     LEFT: 37,
     UP: 38,
@@ -116,11 +142,11 @@ function vehiclePositionAlreadyTaken(row, col) {
         y = (row * Tile.height) + (Tile.height / 2);
         objX = Vehicle.objects[i].position.x;
         objY = Vehicle.objects[i].position.y;
-        // if ((objX < (x + Vehicle.width) && objX > (x - Vehicle.width)) &&
-        //     (objY < (y + Vehicle.height) && objY > (y - Vehicle.height)))
-        //     return true;
-        if (objX == x && objY == y)
+        if ((objX < (x + Vehicle.width) && objX > (x - Vehicle.width)) &&
+            (objY < (y + Vehicle.height) && objY > (y - Vehicle.height)))
             return true;
+        // if (objX == x && objY == y)
+        //     return true;
     }
     return false;
 }
@@ -142,16 +168,27 @@ function logPositionAlreadyTaken(row, col) {
     return false;
 }
 
+function changeCamera() {
+    Game.currentCameraOrtho = !Game.currentCameraOrtho;
+}
+
 function createCamera() {
-    Game.camera = new THREE.OrthographicCamera(Game.width / -2, Game.width / 2, Game.height / 2, Game.height /
+    Game.orthographicCamera = new THREE.OrthographicCamera(Game.width / -2, Game.width / 2, Game.height / 2, Game.height /
         -2, 1, 1000);
-    // Game.camera = new THREE.PerspectiveCamera(45, Game.width / Game.height, 1, 1000);
-    Game.camera.position.set(Game.width / 2, Game.height / 2, 610);
-    // Game.camera.lookAt(new THREE.Vector3(Game.width/2, (Game.height / 2) + 50, 0));
-    Game.scene.add(Game.camera);
+    Game.orthographicCamera.position.set(Game.width / 2, Game.height / 2, 610);
+
+    Game.perspectiveCamera = new THREE.PerspectiveCamera(45, Game.width / Game.height, 1, 1000);
+    Game.perspectiveCamera.position.set(Game.width / 2, Game.height / 2, 610);
+    Game.perspectiveCamera.lookAt(new THREE.Vector3(Game.width / 2, Game.height / 2, 0));
+
+    Game.scene.add(Game.orthographicCamera);
+    Game.scene.add(Game.perspectiveCamera);
 }
 
 function createLight() {
+    Game.ambientLight = new THREE.AmbientLight(0x101010);
+    Game.scene.add(Game.ambientLight);
+
     Game.light = new THREE.PointLight(0xffffff, 1, 0);
     Game.light.position.set(Game.width / 2, Game.height / 2, 1000);
     Game.scene.add(Game.light);
@@ -162,9 +199,8 @@ function createUnitCube(texture, color) {
 
     geometry = new THREE.BoxGeometry(1, 1, 1);
     if (texture)
-        material = new THREE.MeshPhongMaterial({
-            map: texture,
-            shininess: 2
+        material = new THREE.MeshBasicMaterial({
+            map: texture
         });
     else
         material = new THREE.MeshPhongMaterial({
@@ -175,8 +211,8 @@ function createUnitCube(texture, color) {
 
     if (color)
         material.color = color;
-    cube = new THREE.Mesh(geometry, material);
 
+    cube = new THREE.Mesh(geometry, material);
     return cube;
 }
 
@@ -318,7 +354,8 @@ function setup() {
 
     Game.textureLoader.crossOrigin = 'anonymous';
 
-    Game.initialHeroPosition = new THREE.Vector3(((Game.numXTiles / 2) * Tile.width) + Tile.width / 2, Tile.height / 2, Hero.depthOffset);
+    Game.initialHeroPosition = new THREE.Vector3(((Game.numXTiles / 2) * Tile.width) + Tile.width / 2, Tile.height / 2,
+        Hero.depthOffset);
     createScene();
 
     document.onkeydown = handleKeyDown;
@@ -327,50 +364,88 @@ function setup() {
 
 function moveVehicles() {
     for (var i = 0; i < Vehicle.objects.length; i++) {
-        if (((Vehicle.objects[i].position.y - Tile.height / 2) / Tile.height) % 3 == 0)
-            Vehicle.objects[i].position.x += Vehicle.speed[0];
-        else if (((Vehicle.objects[i].position.y - Tile.height / 2) / Tile.height) % 3 == 1)
-            Vehicle.objects[i].position.x += Vehicle.speed[1];
-        else
-            Vehicle.objects[i].position.x += Vehicle.speed[2];
+        var speed, vehicleRow;
 
-        if (Vehicle.objects[i].position.x > (Game.width + Tile.width / 2)) {
-            do {
-                row = Math.floor(Math.random() * Road.numRows) + Road.rowOffset;
-                col = -Math.floor(Math.random() * Vehicle.spawnOffset) - 1;
-            } while (vehiclePositionAlreadyTaken(row, col));
+        currentRow = (Vehicle.objects[i].position.y - Tile.height / 2) / Tile.height;
+        speed = Vehicle.speed[currentRow % 3];
 
-            Vehicle.objects[i].position.set((col * Tile.width) + (Tile.width / 2),
-                (row * Tile.height) + (Tile.height / 2),
-                Vehicle.depthOffset);
+        if (currentRow % 2 == 0) {
+            Vehicle.objects[i].position.x += speed;
+            if (Vehicle.objects[i].position.x > (Game.width + Tile.width / 2)) {
+                do {
+                    row = Math.floor(Math.random() * Road.numRows) + Road.rowOffset;
+                    if (row % 2 == 0)
+                        col = -Math.floor(Math.random() * Vehicle.spawnOffset) - 1;
+                    else
+                        col = Math.floor(Math.random() * Vehicle.spawnOffset) + Game.numXTiles;
+                } while (vehiclePositionAlreadyTaken(row, col));
+
+                Vehicle.objects[i].position.set((col * Tile.width) + (Tile.width / 2),
+                    (row * Tile.height) + (Tile.height / 2),
+                    Vehicle.depthOffset);
+            }
+        } else {
+            Vehicle.objects[i].position.x -= speed;
+            if (Vehicle.objects[i].position.x < -(Tile.width / 2)) {
+                do {
+                    row = Math.floor(Math.random() * Road.numRows) + Road.rowOffset;
+                    if (row % 2 == 0)
+                        col = -Math.floor(Math.random() * Vehicle.spawnOffset) - 1;
+                    else
+                        col = Math.floor(Math.random() * Vehicle.spawnOffset) + Game.numXTiles;
+                } while (vehiclePositionAlreadyTaken(row, col));
+
+                Vehicle.objects[i].position.set((col * Tile.width) + (Tile.width / 2),
+                    (row * Tile.height) + (Tile.height / 2),
+                    Vehicle.depthOffset);
+            }
         }
     }
 }
 
 function moveLogs() {
     for (var i = 0; i < Log.objects.length; i++) {
-        if (((Log.objects[i].position.y - Tile.height / 2) / Tile.height) % 3 == 0)
-            Log.objects[i].position.x -= Log.speed[0];
-        else if (((Log.objects[i].position.y - Tile.height / 2) / Tile.height) % 3 == 1)
-            Log.objects[i].position.x -= Log.speed[1];
-        else
-            Log.objects[i].position.x -= Log.speed[2];
+        var speed, currentRow;
 
-        if (Log.objects[i].position.x < -(Tile.width / 2)) {
-            do {
-                row = Math.floor(Math.random() * River.numRows) + River.rowOffset;
-                col = Math.floor(Math.random() * Log.spawnOffset) + Game.numXTiles;
-            } while (logPositionAlreadyTaken(row, col));
+        currentRow = (Log.objects[i].position.y - Tile.height / 2) / Tile.height;
+        speed = Log.speed[currentRow % 3];
 
-            Log.objects[i].position.set((col * Tile.width) + (Tile.width / 2),
-                (row * Tile.height) + (Tile.height / 2),
-                Log.depthOffset);
+        if (currentRow % 2 == 0) {
+            Log.objects[i].position.x -= speed;
+            if (Log.objects[i].position.x < -(Tile.width / 2)) {
+                do {
+                    row = Math.floor(Math.random() * River.numRows) + River.rowOffset;
+                    if (row % 2 != 0)
+                        col = -Math.floor(Math.random() * Log.spawnOffset) - 1;
+                    else
+                        col = Math.floor(Math.random() * Log.spawnOffset) + Game.numXTiles;
+                } while (logPositionAlreadyTaken(row, col));
+
+                Log.objects[i].position.set((col * Tile.width) + (Tile.width / 2),
+                    (row * Tile.height) + (Tile.height / 2),
+                    Log.depthOffset);
+            }
+        } else {
+            Log.objects[i].position.x += speed;
+            if (Log.objects[i].position.x > (Game.width + Tile.width / 2)) {
+                do {
+                    row = Math.floor(Math.random() * River.numRows) + River.rowOffset;
+                    if (row % 2 != 0)
+                        col = -Math.floor(Math.random() * Log.spawnOffset) - 1;
+                    else
+                        col = Math.floor(Math.random() * Log.spawnOffset) + Game.numXTiles;
+                } while (logPositionAlreadyTaken(row, col));
+
+                Log.objects[i].position.set((col * Tile.width) + (Tile.width / 2),
+                    (row * Tile.height) + (Tile.height / 2),
+                    Log.depthOffset);
+            }
         }
     }
 }
 
 function moveHero() {
-    var i, x, y, row, col;
+    var i, x, y, row, col, speed, currentRow;
 
     if (Hero.object == null)
         return;
@@ -390,12 +465,12 @@ function moveHero() {
         yDiff = Log.height / 2 + Hero.height / 2
         if ((objX < (x + xDiff) && objX > (x - xDiff)) &&
             (objY < (y + yDiff) && objY > (y - yDiff))) {
-            if (((objY - Tile.height / 2) / Tile.height) % 3 == 0)
-                Hero.object.position.x -= Log.speed[0];
-            else if (((objY - Tile.height / 2) / Tile.height) % 3 == 1)
-                Hero.object.position.x -= Log.speed[1];
+            currentRow = (objY - Tile.height / 2) / Tile.height;
+            speed = Log.speed[currentRow % 3];
+            if (currentRow % 2 == 0)
+                Hero.object.position.x -= speed;
             else
-                Hero.object.position.x -= Log.speed[2];
+                Hero.object.position.x += speed;
             ensureHeroInGame();
             return;
         }
@@ -426,6 +501,8 @@ function handleKeyDown(event) {
 
     if (key == Key.ESCAPE)
         reset();
+    else if (key == Key.P)
+        changeCamera();
 
     if (!Hero.alive || Hero.won)
         return;
@@ -461,6 +538,7 @@ function reset() {
     Hero.alive = true;
     Hero.won = false;
     Hero.health = Game.initialHeroHealth;
+    Game.text.innerHTML = "You have " + Hero.health + " lives.";
 }
 
 function checkCollision() {
@@ -539,7 +617,15 @@ function checkGameEnd() {
 
 function draw() {
     Game.animationRequest = requestAnimationFrame(draw);
-    Game.renderer.render(Game.scene, Game.camera);
+
+    if (Game.currentCameraOrtho)
+        Game.renderer.render(Game.scene, Game.orthographicCamera);
+    else {
+        Game.perspectiveCamera.position.set(Hero.object.position.x, Hero.object.position.y - 300, Hero.object.position.z +
+            300);
+        Game.perspectiveCamera.lookAt(Hero.object.position);
+        Game.renderer.render(Game.scene, Game.perspectiveCamera);
+    }
 
     if (!Hero.alive || Hero.won)
         return;
