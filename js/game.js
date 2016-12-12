@@ -298,7 +298,7 @@ function createHero() {
     // });
     // Hero.object = Hero.model;
     Hero.object.scale.set(2, 2, 2);
-    Hero.object.position.set(Game.initialHeroPosition.x, Game.initialHeroPosition.y, 100);
+    Hero.object.position.set(Game.initialHeroPosition.x, Game.initialHeroPosition.y, Game.initialHeroPosition.z);
 
     Hero.object.rotateY(calculateRotation(Hero.object.facing, Key.UP));
     Hero.object.updateMatrix();
