@@ -6,3 +6,6 @@ Credit to Nikolus for the textures used. Got them from here: http://www.planetmi
 Nikolus- Pack creator
 Nintendo- Owns Zelda
 Many sprite rippers- Ripping of sprites
+
+Sounds from:
+http://noproblo.dayjo.org/ZeldaSounds/

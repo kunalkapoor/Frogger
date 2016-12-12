@@ -42,7 +42,6 @@ var Game = {
     scene: null,
     animationRequest: null,
     textureLoader: new THREE.TextureLoader(),
-    colladaLoader: new THREE.ColladaLoader(),
     clock: new THREE.Clock(),
 
     currentCameraOrtho: true,
@@ -63,6 +62,13 @@ var Game = {
     initialHeroPosition: null
 }
 
+var Sound = {
+    start: null,
+    won: null,
+    dead: null,
+    hit: null
+}
+
 var Tile = {
     height: 40,
     width: 40,
@@ -73,7 +79,6 @@ var Tile = {
 var Hero = {
     object: null,
     model: null,
-    facing: Key.UP,
 
     height: 2 * Tile.height / 3,
     width: 2 * Tile.width / 3,
@@ -293,37 +298,52 @@ function createHero() {
     // });
     // Hero.object = Hero.model;
     Hero.object.scale.set(2, 2, 2);
-    Hero.object.position.set(Game.width / 2, Game.height / 2, 100);
+    Hero.object.position.set(Game.initialHeroPosition.x, Game.initialHeroPosition.y, 100);
 
-    Hero.object.rotateY(calculateHeroRotation(Key.UP));
+    Hero.object.rotateY(calculateRotation(Hero.object.facing, Key.UP));
     Hero.object.updateMatrix();
-    Hero.facing = Key.UP;
+    Hero.object.facing = Key.UP;
 
     Game.scene.add(Hero.object);
 }
 
 function createVehicles() {
-    var texture = Game.textureLoader.load('assets/blocks/car-top.png', function() {
-        var cube, row, col;
+    // var texture = Game.textureLoader.load('assets/blocks/car-top.png', function() {
+    var cube, row, col;
 
-        for (var i = 0; i < Vehicle.count; i++) {
-            do {
-                row = Math.floor(Math.random() * Road.numRows) + Road.rowOffset;
-                col = Math.floor(Math.random() * Game.numXTiles);
-            } while (vehiclePositionAlreadyTaken(row, col));
+    for (var i = 0; i < Vehicle.count; i++) {
+        do {
+            row = Math.floor(Math.random() * Road.numRows) + Road.rowOffset;
+            col = Math.floor(Math.random() * Game.numXTiles);
+        } while (vehiclePositionAlreadyTaken(row, col));
 
-            cube = createUnitCube(texture);
-            cube.scale.set(Vehicle.width, Vehicle.height, Vehicle.depth);
-            cube.position.set((col * Tile.width) + (Tile.width / 2),
-                (row * Tile.height) + (Tile.height / 2),
-                Vehicle.depthOffset);
-            Game.scene.add(cube);
-            Vehicle.objects.push(cube);
+        // cube = createUnitCube(texture);
+        // cube.scale.set(Vehicle.width, Vehicle.height, Vehicle.depth);
+        // cube.position.set((col * Tile.width) + (Tile.width / 2),
+        //     (row * Tile.height) + (Tile.height / 2),
+        //     Vehicle.depthOffset);
+
+        var vehicle = Vehicle.model.clone();
+        vehicle.scale.set(10, 10, 10);
+        vehicle.position.set((col * Tile.width) + (Tile.width / 2),
+            (row * Tile.height) + (Tile.height / 2),
+            Vehicle.depthOffset);
+        vehicle.rotateX(Math.PI / 2);
+        vehicle.facing = Key.LEFT;
+        if (row % 2 == 0) {
+            vehicle.rotateY(calculateRotation(vehicle.facing, Key.RIGHT));
+            vehicle.facing = Key.RIGHT;
+        } else {
+            vehicle.rotateY(calculateRotation(vehicle.facing, Key.LEFT));
+            vehicle.facing = Key.LEFT;
         }
-    });
-    texture.wrapS = THREE.RepeatWrapping;
-    texture.wrapT = THREE.RepeatWrapping;
-    texture.repeat.set(Vehicle.width / Tile.width, 1);
+        Game.scene.add(vehicle);
+        Vehicle.objects.push(vehicle);
+    }
+    // });
+    // texture.wrapS = THREE.RepeatWrapping;
+    // texture.wrapT = THREE.RepeatWrapping;
+    // texture.repeat.set(Vehicle.width / Tile.width, 1);
 }
 
 function createLogs() {
@@ -379,8 +399,7 @@ function setup() {
     document.onkeyup = handleKeyUp;
 }
 
-function calculateHeroRotation(targetDirection) {
-    var currentDirection = Hero.facing;
+function calculateRotation(currentDirection, targetDirection) {
 
     if (currentDirection == targetDirection)
         return 0;
@@ -444,6 +463,15 @@ function moveVehicles() {
                 Vehicle.objects[i].position.set((col * Tile.width) + (Tile.width / 2),
                     (row * Tile.height) + (Tile.height / 2),
                     Vehicle.depthOffset);
+                if (row % 2 == 0) {
+                    Vehicle.objects[i].rotateY(calculateRotation(Vehicle.objects[i].facing, Key.RIGHT));
+                    Vehicle.objects[i].facing = Key.RIGHT;
+                } else {
+                    Vehicle.objects[i].rotateY(calculateRotation(Vehicle.objects[i].facing, Key.LEFT));
+                    Vehicle.objects[i].facing = Key.LEFT;
+                }
+
+
             }
         } else {
             Vehicle.objects[i].position.x -= speed;
@@ -459,6 +487,13 @@ function moveVehicles() {
                 Vehicle.objects[i].position.set((col * Tile.width) + (Tile.width / 2),
                     (row * Tile.height) + (Tile.height / 2),
                     Vehicle.depthOffset);
+                if (row % 2 == 0) {
+                    Vehicle.objects[i].rotateY(calculateRotation(Vehicle.objects[i].facing, Key.RIGHT));
+                    Vehicle.objects[i].facing = Key.RIGHT;
+                } else {
+                    Vehicle.objects[i].rotateY(calculateRotation(Vehicle.objects[i].facing, Key.LEFT));
+                    Vehicle.objects[i].facing = Key.LEFT;
+                }
             }
         }
     }
@@ -570,27 +605,24 @@ function handleKeyDown(event) {
 
     if (key == Key.LEFT) {
         Hero.object.position.x -= Tile.width;
-        Hero.object.rotateY(calculateHeroRotation(Key.LEFT));
+        Hero.object.rotateY(calculateRotation(Hero.object.facing, Key.LEFT));
         Hero.object.updateMatrix();
-        Hero.facing = key;
-    }
-    else if (key == Key.RIGHT) {
+        Hero.object.facing = key;
+    } else if (key == Key.RIGHT) {
         Hero.object.position.x += Tile.width;
-        Hero.object.rotateY(calculateHeroRotation(Key.RIGHT));
+        Hero.object.rotateY(calculateRotation(Hero.object.facing, Key.RIGHT));
         Hero.object.updateMatrix();
-        Hero.facing = key;
-    }
-    else if (key == Key.UP) {
+        Hero.object.facing = key;
+    } else if (key == Key.UP) {
         Hero.object.position.y += Tile.height;
-        Hero.object.rotateY(calculateHeroRotation(Key.UP));
+        Hero.object.rotateY(calculateRotation(Hero.object.facing, Key.UP));
         Hero.object.updateMatrix();
-        Hero.facing = key;
-    }
-    else if (key == Key.DOWN) {
+        Hero.object.facing = key;
+    } else if (key == Key.DOWN) {
         Hero.object.position.y -= Tile.height;
-        Hero.object.rotateY(calculateHeroRotation(Key.DOWN));
+        Hero.object.rotateY(calculateRotation(Hero.object.facing, Key.DOWN));
         Hero.object.updateMatrix();
-        Hero.facing = key;
+        Hero.object.facing = key;
     }
 
     ensureHeroInGame();
@@ -609,6 +641,7 @@ function clearScene() {
 }
 
 function reset() {
+    Sound.start.play();
     clearScene();
     createScene();
 
@@ -666,11 +699,13 @@ function handleCollision() {
         if (Hero.health == 0) {
             Hero.alive = false;
             Game.text.innerHTML = "You died! Press escape to restart.";
+            Sound.dead.play();
         } else {
             Game.text.innerHTML = "You have " + Hero.health + " lives.";
             Hero.object.position.x = Game.initialHeroPosition.x;
             Hero.object.position.y = Game.initialHeroPosition.y;
             Hero.object.position.z = Game.initialHeroPosition.z;
+            Sound.hit.play();
         }
     }
 }
@@ -689,13 +724,13 @@ function checkGameEnd() {
     if (row == rowTiles.length - 1) {
         Hero.won = true;
         Game.text.innerHTML = "You won! Press escape to restart.";
+        Sound.won.play();
     }
 }
 
 function draw() {
     Game.animationRequest = requestAnimationFrame(draw);
 
-    THREE.AnimationHandler.update(Game.clock.getDelta());
     if (Game.currentCameraOrtho)
         Game.renderer.render(Game.scene, Game.orthographicCamera);
     else {
@@ -717,30 +752,26 @@ function draw() {
     checkGameEnd();
 }
 
+function setupSounds() {
+    Sound.start = new Howl({
+        src: ['assets/sounds/LOZ_Secret.wav'],
+        volume: 0.3
+    });
+    Sound.won = new Howl({
+        src: ['assets/sounds/LOZ_Fanfare.wav'],
+        volume: 0.5
+    });
+    Sound.dead = new Howl({
+        src: ['assets/sounds/LOZ_Link_Die.wav'],
+        volume: 0.4
+    });
+    Sound.hit = new Howl({
+        src: ['assets/sounds/LOZ_Bomb_Blow.wav'],
+        volume: 0.5
+    });
+}
+
 function main() {
-    // Game.colladaLoader.options.convertUpAxis = true;
-    // Game.colladaLoader.load('js/three.js-master/examples/models/collada/monster/monster.dae', function(collada) {
-    //     Hero.model = collada.scene;
-
-    //     Hero.model.traverse(function(child) {
-    //         if (child instanceof THREE.SkinnedMesh) {
-    //             var animation = new THREE.Animation(child, child.geometry.animation);
-    //             animation.play();
-    //         }
-    //     });
-
-    //     Hero.model.scale.set(0.05, 0.05, 0.05);
-    //     Hero.model.position.x = Game.width / 2;
-    //     Hero.model.position.y = Game.height / 2;
-    //     Hero.model.position.z = 100;
-    //     Hero.model.rotateX(Math.PI / 2);
-    //     Hero.model.rotateY(Math.PI / 2);
-    //     Hero.model.updateMatrix();
-    //     Hero.object = Hero.model;
-
-    //     setup();
-    //     draw();
-    // });
     var loader = new THREE.JSONLoader().load('assets/frog1.js', function(geometry, materials) {
         var material = new THREE.MultiMaterial(materials);
         var mesh = new THREE.Mesh(geometry, material);
@@ -748,9 +779,18 @@ function main() {
         Hero.object = mesh;
         Hero.object.rotateX(Math.PI / 2);
         Hero.object.updateMatrix();
+        Hero.object.facing = Key.UP;
 
-        setup();
-        draw();
+        var loader2 = new THREE.ObjectLoader().load('assets/car/car.json', function(obj) {
+
+            Vehicle.model = obj;
+
+            setupSounds();
+            setup();
+            draw();
+
+            Sound.start.play();
+        });
     });
 }
 
