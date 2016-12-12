@@ -1,5 +1,7 @@
 # A Simple Game inspired by Frogger
+
 _Author: Kunal Kapoor_
+
 _Unity: kkapoor_
 
 ### Description
